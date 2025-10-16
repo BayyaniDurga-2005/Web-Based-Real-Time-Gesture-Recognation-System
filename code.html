@@ -1,0 +1,739 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Gesture Recognition</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .video-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 15px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+            transform: scaleX(-1);
+        }
+
+        #canvasElement {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .info-panel h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #ff6b6b;
+        }
+
+        .gesture-display {
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .current-gesture {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            min-height: 4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .gesture-name {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        .gestures-list {
+            list-style: none;
+        }
+
+        .gestures-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .gesture-emoji {
+            font-size: 1.5rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1rem;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ff6b6b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 15px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Hand Gesture Recognition</h1>
+            <p class="subtitle">Real-time hand gesture detection using your webcam</p>
+        </div>
+
+        <div class="main-content">
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="videoElement" autoplay muted playsinline></video>
+                    <canvas id="canvasElement"></canvas>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary">Start Camera</button>
+                    <button id="stopBtn" class="btn btn-secondary" disabled>Stop Camera</button>
+                </div>
+
+                <div id="loadingDiv" class="loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Initializing hand detection...</p>
+                </div>
+
+                <div id="errorDiv" class="error-message" style="display: none;"></div>
+            </div>
+
+            <div class="sidebar">
+                <div class="info-panel gesture-display">
+                    <h3>Current Gesture</h3>
+                    <div id="currentGesture" class="current-gesture">Ready</div>
+                    <div id="gestureName" class="gesture-name">Position your hand in view</div>
+                    <div class="confidence-bar">
+                        <div id="confidenceBar" class="confidence-fill"></div>
+                    </div>
+                    <div id="confidenceText" style="font-size: 0.9rem; opacity: 0.8;">Confidence: 0%</div>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Supported Gestures</h3>
+                    <ul class="gestures-list">
+                        <li>
+                            <span>Open Hand</span>
+                            <div class="gesture-emoji">
+                                <img src="https://placehold.co/30x30" alt="Open palm hand gesture showing all five fingers extended" />
+                            </div>
+                        </li>
+                        <li>
+                            <span>Fist</span>
+                            <div class="gesture-emoji">
+                                <img src="https://placehold.co/30x30" alt="Closed fist hand gesture with all fingers curled" />
+                            </div>
+                        </li>
+                        <li>
+                            <span>Peace Sign</span>
+                            <div class="gesture-emoji">
+                                <img src="https://placehold.co/30x30" alt="Peace sign hand gesture with index and middle finger extended in V shape" />
+                            </div>
+                        </li>
+                        <li>
+                            <span>Thumbs Up</span>
+                            <div class="gesture-emoji">
+                                <img src="https://placehold.co/30x30" alt="Thumbs up hand gesture with thumb pointing upward" />
+                            </div>
+                        </li>
+                        <li>
+                            <span>Pointing</span>
+                            <div class="gesture-emoji">
+                                <img src="https://placehold.co/30x30" alt="Pointing hand gesture with index finger extended" />
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Statistics</h3>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div id="gestureCount" class="stat-value">0</div>
+                            <div class="stat-label">Gestures Detected</div>
+                        </div>
+                        <div class="stat-item">
+                            <div id="fps" class="stat-value">0</div>
+                            <div class="stat-label">FPS</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <img src="https://placehold.co/30x30" alt="Real-time processing icon showing clock with fast motion lines" />
+                </div>
+                <h3>Real-Time Detection</h3>
+                <p>Instant hand gesture recognition with minimal latency using advanced ML models.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <img src="https://placehold.co/30x30" alt="High accuracy icon showing target bullseye with arrow" />
+                </div>
+                <h3>High Accuracy</h3>
+                <p>Powered by MediaPipe for precise hand landmark detection and gesture classification.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <img src="https://placehold.co/30x30" alt="Privacy shield icon showing lock with protective barrier" />
+                </div>
+                <h3>Privacy First</h3>
+                <p>All processing happens locally in your browser. No data is sent to external servers.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class HandGestureRecognizer {
+            constructor() {
+                this.video = document.getElementById('videoElement');
+                this.canvas = document.getElementById('canvasElement');
+                this.ctx = this.canvas.getContext('2d');
+                this.hands = null;
+                this.camera = null;
+                this.isRunning = false;
+                this.gestureCount = 0;
+                this.lastFrameTime = 0;
+                this.fps = 0;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.initializeHands();
+            }
+
+            initializeElements() {
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.loadingDiv = document.getElementById('loadingDiv');
+                this.errorDiv = document.getElementById('errorDiv');
+                this.currentGestureEl = document.getElementById('currentGesture');
+                this.gestureNameEl = document.getElementById('gestureName');
+                this.confidenceBarEl = document.getElementById('confidenceBar');
+                this.confidenceTextEl = document.getElementById('confidenceText');
+                this.gestureCountEl = document.getElementById('gestureCount');
+                this.fpsEl = document.getElementById('fps');
+            }
+
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startCamera());
+                this.stopBtn.addEventListener('click', () => this.stopCamera());
+            }
+
+            async initializeHands() {
+                try {
+                    this.hands = new Hands({
+                        locateFile: (file) => {
+                            return https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file};
+                        }
+                    });
+
+                    this.hands.setOptions({
+                        maxNumHands: 2,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    this.hands.onResults((results) => this.onResults(results));
+                } catch (error) {
+                    this.showError('Failed to initialize hand detection: ' + error.message);
+                }
+            }
+
+            async startCamera() {
+                try {
+                    this.showLoading(true);
+                    this.hideError();
+
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        }
+                    });
+
+                    this.video.srcObject = stream;
+                    
+                    this.video.onloadedmetadata = () => {
+                        this.canvas.width = this.video.videoWidth;
+                        this.canvas.height = this.video.videoHeight;
+                        
+                        this.camera = new Camera(this.video, {
+                            onFrame: async () => {
+                                if (this.hands && this.isRunning) {
+                                    await this.hands.send({ image: this.video });
+                                }
+                            },
+                            width: 1280,
+                            height: 720
+                        });
+
+                        this.camera.start();
+                        this.isRunning = true;
+                        this.startBtn.disabled = true;
+                        this.stopBtn.disabled = false;
+                        this.showLoading(false);
+                    };
+
+                } catch (error) {
+                    this.showError('Camera access denied or not available: ' + error.message);
+                    this.showLoading(false);
+                }
+            }
+
+            stopCamera() {
+                if (this.camera) {
+                    this.camera.stop();
+                }
+                
+                if (this.video.srcObject) {
+                    const tracks = this.video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    this.video.srcObject = null;
+                }
+
+                this.isRunning = false;
+                this.startBtn.disabled = false;
+                this.stopBtn.disabled = true;
+                this.clearCanvas();
+                this.updateGestureDisplay('Ready', 'Position your hand in view', 0);
+            }
+
+            onResults(results) {
+                if (!this.isRunning) return;
+
+                this.updateFPS();
+                this.clearCanvas();
+
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    for (const landmarks of results.multiHandLandmarks) {
+                        this.drawLandmarks(landmarks);
+                        const gesture = this.recognizeGesture(landmarks);
+                        this.updateGestureDisplay(gesture.name, gesture.description, gesture.confidence);
+                        
+                        if (gesture.confidence > 0.7) {
+                            this.gestureCount++;
+                            this.gestureCountEl.textContent = this.gestureCount;
+                        }
+                    }
+                } else {
+                    this.updateGestureDisplay('No Hand', 'Position your hand in view', 0);
+                }
+            }
+
+            drawLandmarks(landmarks) {
+                this.ctx.save();
+                this.ctx.scale(-1, 1);
+                this.ctx.translate(-this.canvas.width, 0);
+
+                // Draw connections
+                this.ctx.strokeStyle = '#ff6b6b';
+                this.ctx.lineWidth = 2;
+                this.drawConnections(landmarks);
+
+                // Draw landmarks
+                this.ctx.fillStyle = '#4ecdc4';
+                landmarks.forEach((landmark) => {
+                    const x = landmark.x * this.canvas.width;
+                    const y = landmark.y * this.canvas.height;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                });
+
+                this.ctx.restore();
+            }
+
+            drawConnections(landmarks) {
+                const connections = [
+                    [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
+                    [0, 5], [5, 6], [6, 7], [7, 8], // Index
+                    [5, 9], [9, 10], [10, 11], [11, 12], // Middle
+                    [9, 13], [13, 14], [14, 15], [15, 16], // Ring
+                    [13, 17], [17, 18], [18, 19], [19, 20], // Pinky
+                    [0, 17] // Wrist to pinky base
+                ];
+
+                connections.forEach(([start, end]) => {
+                    const startPoint = landmarks[start];
+                    const endPoint = landmarks[end];
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(startPoint.x * this.canvas.width, startPoint.y * this.canvas.height);
+                    this.ctx.lineTo(endPoint.x * this.canvas.width, endPoint.y * this.canvas.height);
+                    this.ctx.stroke();
+                });
+            }
+
+            recognizeGesture(landmarks) {
+                const fingerTips = [4, 8, 12, 16, 20];
+                const fingerPips = [3, 6, 10, 14, 18];
+                const wrist = landmarks[0];
+
+                // Calculate which fingers are extended
+                const fingersUp = fingerTips.map((tip, index) => {
+                    if (index === 0) { // Thumb
+                        return landmarks[tip].x > landmarks[fingerPips[index]].x;
+                    } else { // Other fingers
+                        return landmarks[tip].y < landmarks[fingerPips[index]].y;
+                    }
+                });
+
+                const upCount = fingersUp.filter(Boolean).length;
+
+                // Gesture recognition logic
+                if (upCount === 5) {
+                    return {
+                        name: 'Open Hand',
+                        description: 'All fingers extended',
+                        confidence: 0.9
+                    };
+                } else if (upCount === 0) {
+                    return {
+                        name: 'Fist',
+                        description: 'All fingers closed',
+                        confidence: 0.9
+                    };
+                } else if (upCount === 2 && fingersUp[1] && fingersUp[2]) {
+                    return {
+                        name: 'Peace Sign',
+                        description: 'Index and middle finger up',
+                        confidence: 0.85
+                    };
+                } else if (upCount === 1 && fingersUp[0]) {
+                    return {
+                        name: 'Thumbs Up',
+                        description: 'Thumb extended upward',
+                        confidence: 0.8
+                    };
+                } else if (upCount === 1 && fingersUp[1]) {
+                    return {
+                        name: 'Pointing',
+                        description: 'Index finger pointing',
+                        confidence: 0.8
+                    };
+                } else {
+                    return {
+                        name: 'Unknown',
+                        description: ${upCount} fingers detected,
+                        confidence: 0.5
+                    };
+                }
+            }
+
+            updateGestureDisplay(gesture, description, confidence) {
+                this.currentGestureEl.textContent = gesture;
+                this.gestureNameEl.textContent = description;
+                this.confidenceBarEl.style.width = ${confidence * 100}%;
+                this.confidenceTextEl.textContent = Confidence: ${Math.round(confidence * 100)}%;
+            }
+
+            updateFPS() {
+                const now = performance.now();
+                if (this.lastFrameTime) {
+                    this.fps = Math.round(1000 / (now - this.lastFrameTime));
+                    this.fpsEl.textContent = this.fps;
+                }
+                this.lastFrameTime = now;
+            }
+
+            clearCanvas() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            showLoading(show) {
+                this.loadingDiv.style.display = show ? 'block' : 'none';
+            }
+
+            showError(message) {
+                this.errorDiv.textContent = message;
+                this.errorDiv.style.display = 'block';
+            }
+
+            hideError() {
+                this.errorDiv.style.display = 'none';
+            }
+        }
+
+        // Initialize the application when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new HandGestureRecognizer();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Pause detection when tab is not visible
+                console.log('Page hidden, pausing detection');
+            }
+        });
+    </script>
+</body>
+</html>
